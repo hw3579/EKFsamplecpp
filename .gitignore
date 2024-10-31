@@ -1,0 +1,35 @@
+# Ignore intermediate files generated during the build process
+*.o
+*.obj
+*.gch
+*.pch
+*.lo
+*.la
+*.al
+*.libs
+*.dll
+*.so
+*.dylib
+*.exe
+*.out
+*.app
+*.i
+*.ii
+*.s
+*.su
+*.swp
+*.d
+*.gcno
+*.gcda
+*.gcov
+
+# Ignore build directories
+build/
+Build/
+BUILD/
+bin/
+Bin/
+BIN/
+obj/
+Obj/
+OBJ/
