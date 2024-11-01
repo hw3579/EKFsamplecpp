@@ -1,3 +1,6 @@
+
+#define M_PI 3.14159265358979323846
+
 #include <Eigen/Dense>
 #include <cmath>
 #include <vector>
@@ -32,7 +35,7 @@ public:
     std::vector<Eigen::Vector2d> landmarks;
 
     Map() {
-        int n = 10;
+        int n = 3;
         double range_min = -20;
         double range_max = 20;
 
@@ -66,12 +69,13 @@ public:
         _predict_over_dt(dt);
     }
 
-    std::pair<Eigen::Vector3d, Eigen::Matrix3d> estimate() const {
-        return {_x_est, _Sigma_est}; 
+    Eigen::Vector3d estimate() const {
+        return _x_est;
     }
-    
-    Eigen::Matrix3d Sigma_est() const { return _Sigma_est; }
 
+    Eigen::Matrix3d RobotEstimator::getSigmaEst() const {
+        return _Sigma_est;
+    }
     void copy_prediction_to_estimate() {
         _x_est = _x_pred;
         _Sigma_est = _Sigma_pred;
@@ -126,8 +130,8 @@ private:
 
         Eigen::Matrix3d A;
         A << 1, 0, -v_c * std::sin(_x_est[2]) * dt,
-             0, 1,  v_c * std::cos(_x_est[2]) * dt,
-             0, 0, 1;
+            0, 1, v_c* std::cos(_x_est[2])* dt,
+            0, 0, 1;
 
         _kf_predict_covariance(A, _config.V * dt);
     }

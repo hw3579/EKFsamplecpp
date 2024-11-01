@@ -33,3 +33,6 @@ BIN/
 obj/
 Obj/
 OBJ/
+out/
+.vs/
+.vscode/

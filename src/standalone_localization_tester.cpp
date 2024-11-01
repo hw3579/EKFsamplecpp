@@ -2,8 +2,11 @@
 #include <vector>
 #include <iostream>
 #include <random>
-#include "tqdm/tqdm.h"
-#include "robot_localization_system.hpp" // åŒ…å«FilterConfiguration, Map, RobotEstimatorçš„å¤´æ–‡ä»¶
+#include "matplotlibcpp.h"
+#include "robot_localization_system.hpp" // °üº¬FilterConfiguration, Map, RobotEstimatorµÄÍ·ÎÄ¼ş
+
+
+namespace plt = matplotlibcpp;
 
 class SimulatorConfiguration {
 public:
@@ -45,7 +48,7 @@ public:
         std::mt19937 gen(rd());
         std::normal_distribution<> d(0, 1);
 
-        // ä½¿ç”¨åˆå§‹çŠ¶æ€å’Œåæ–¹å·®ç”ŸæˆçœŸå®çŠ¶æ€
+        // Ê¹ÓÃ³õÊ¼×´Ì¬ºÍĞ­·½²îÉú³ÉÕæÊµ×´Ì¬
         _x_true = _filter_config.x0;
         Eigen::LLT<Eigen::Matrix3d> llt(_filter_config.Sigma0);
         _x_true += llt.matrixL() * Eigen::Vector3d(d(gen), d(gen), d(gen));
@@ -117,6 +120,95 @@ private:
     Eigen::Vector2d _u;
 };
 
+void plot_path(const std::vector<std::vector<double>>& x_true_history,
+    const std::vector<std::vector<double>>& x_est_history,
+    const std::vector<std::vector<double>>& landmarks) {
+
+    
+    plt::figure();
+
+    // »æÖÆÕæÊµÂ·¾¶
+    std::vector<double> x_true_x, x_true_y;
+    for (const auto& point : x_true_history) {
+        x_true_x.push_back(point[0]);
+        x_true_y.push_back(point[1]);
+    }
+    plt::plot(x_true_x, x_true_y, { {"label", "True Path"} });
+
+    // »æÖÆ¹À¼ÆÂ·¾¶
+    std::vector<double> x_est_x, x_est_y;
+    for (const auto& point : x_est_history) {
+        x_est_x.push_back(point[0]);
+        x_est_y.push_back(point[1]);
+    }
+    plt::plot(x_est_x, x_est_y, { {"label", "Estimated Path"} });
+
+    // »æÖÆµØ±êµã
+    std::vector<double> landmarks_x, landmarks_y;
+    for (const auto& landmark : landmarks) {
+        landmarks_x.push_back(landmark[0]);
+        landmarks_y.push_back(landmark[1]);
+    }
+    plt::scatter(landmarks_x, landmarks_y, 10.0, { {"color", "red"}, {"label", "Landmarks"}, {"marker", "x"} });
+
+    // ÉèÖÃÍ¼Àı¡¢±êÇ©¡¢±êÌâ¡¢×ø±êÖáµÈ
+    plt::legend();
+    plt::xlabel("X position [m]");
+    plt::ylabel("Y position [m]");
+    plt::title("Unicycle Robot Localization using EKF");
+    plt::axis("equal");
+    plt::grid(true);
+
+    // ÏÔÊ¾Í¼±í
+    plt::show();
+}
+
+double wrap_angle(double angle) {
+    return std::atan2(std::sin(angle), std::cos(angle));
+}
+
+void plot_estimation_error(const Eigen::MatrixXd& x_est_history_matrix, const Eigen::MatrixXd& x_true_history_matrix, const Eigen::MatrixXd& Sigma_est_history_matrix) {
+    std::vector<std::string> state_name = { "x", "y", "¦È" };
+    std::vector<std::string> state_name2 = { "x", "y", "theta" };
+
+    Eigen::MatrixXd estimation_error = x_est_history_matrix - x_true_history_matrix;
+    for (int i = 0; i < estimation_error.rows(); ++i) {
+        estimation_error(i, 2) = wrap_angle(estimation_error(i, 2));
+    }
+
+    for (int s = 0; s < 3; ++s) {
+
+        plt::figure();
+
+        Eigen::VectorXd two_sigma = 2 * Sigma_est_history_matrix.col(s).array().sqrt();
+
+        std::vector<double> error(estimation_error.col(s).data(), estimation_error.col(s).data() + estimation_error.rows());
+        std::vector<double> two_sigma_vec(two_sigma.data(), two_sigma.data() + two_sigma.size());
+        std::vector<double> neg_two_sigma_vec = two_sigma_vec;
+        for (auto& val : neg_two_sigma_vec) {
+            val = -val;
+        }
+
+        plt::plot(error, { {"label", "error"} });
+        plt::plot(two_sigma_vec, { {"linestyle", "dashed"}, {"color", "red"}, {"alpha", "0.7"}, {"label", "95% confidence"} });
+        plt::plot(neg_two_sigma_vec, { {"linestyle", "dashed"}, {"color", "red"}, {"alpha", "0.7"} });
+
+        if (s == 0 || s == 1) {
+            plt::plot({ 0, static_cast<double>(two_sigma_vec.size()) }, { 0.1, 0.1 }, { {"color", "tab:orange"}, {"linestyle", ":"}, {"label", "10 cm"} });
+            plt::plot({ 0, static_cast<double>(two_sigma_vec.size()) }, { -0.1, -0.1 }, { {"color", "tab:orange"}, {"linestyle", ":"} });
+        }
+
+        //plt::legend();
+        //plt::title(state_name[s]);
+        //plt::xlabel("localization error (m)");
+        //plt::ylabel("time step (0.1s)");
+        plt::show();
+
+    }
+}
+
+
+
 int main() {
     SimulatorConfiguration sim_config;
     FilterConfiguration filter_config;
@@ -133,47 +225,47 @@ int main() {
     Eigen::Matrix3d Sigma_est;
     Eigen::Vector2d u;
 
-    std::tie(x_est, Sigma_est) = estimator.estimate();
+    x_est = estimator.estimate();
     u = controller.next_control_input(x_est, Sigma_est);
 
     std::vector<Eigen::Vector3d> x_true_history;
     std::vector<Eigen::Vector3d> x_est_history;
     std::vector<Eigen::Vector3d> Sigma_est_history;
 
-    // åˆ›å»ºè¿›åº¦æ¡å¯¹è±¡
-    std::vector<int> steps(sim_config.time_steps);
-    std::iota(steps.begin(), steps.end(), 0);
+    for (int step = 0; step < sim_config.time_steps; ++step) {
+        //bar.set_progress(static_cast<size_t>(100.0 * step / sim_config.time_steps));
 
-    for (int step : tqdm::tqdm(steps)) {
-
-        // è®¾ç½®æ§åˆ¶è¾“å…¥å¹¶åœ¨æ¨¡æ‹Ÿå™¨ä¸­ä¼ æ’­æ­¥éª¤
+        // ÉèÖÃ¿ØÖÆÊäÈë²¢ÔÚÄ£ÄâÆ÷ÖĞ´«²¥²½Öè
         simulator.set_control_input(u);
         double simulation_time = simulator.step();
 
-        // ä½¿ç”¨ç›¸åŒçš„æ§åˆ¶è¾“å…¥é¢„æµ‹Kalmanæ»¤æ³¢å™¨è‡³ç›¸åŒæ—¶é—´
+        // Ê¹ÓÃÏàÍ¬µÄ¿ØÖÆÊäÈëÔ¤²âKalmanÂË²¨Æ÷ÖÁÏàÍ¬Ê±¼ä
         estimator.set_control_input(u);
         estimator.predict_to(simulation_time);
 
-        // è·å–åœ°æ ‡è§‚æµ‹
+        // »ñÈ¡µØ±ê¹Û²â
         Eigen::VectorXd y = simulator.landmark_range_observations();
 
-        // ä½¿ç”¨æœ€æ–°çš„è§‚æµ‹æ›´æ–°æ»¤æ³¢å™¨
+        // Ê¹ÓÃ×îĞÂµÄ¹Û²â¸üĞÂÂË²¨Æ÷
         estimator.update_from_landmark_range_observations(y);
 
-        // è·å–å½“å‰çŠ¶æ€ä¼°è®¡
-        std::tie(x_est, Sigma_est) = estimator.estimate();
-        Sigma_est = estimator.Sigma_est();
+        // »ñÈ¡µ±Ç°×´Ì¬¹À¼Æ
+        x_est = estimator.estimate();
+        Sigma_est = estimator.getSigmaEst();
 
-        // ç¡®å®šä¸‹ä¸€æ­¥æ§åˆ¶æŒ‡ä»¤
+        // È·¶¨ÏÂÒ»²½¿ØÖÆÖ¸Áî
         u = controller.next_control_input(x_est, Sigma_est);
 
-        // å­˜å‚¨æ•°æ®ä»¥ä¾¿ç»˜å›¾
+        // ´æ´¢Êı¾İÒÔ±ã»æÍ¼
         x_true_history.push_back(simulator.x_true());
         x_est_history.push_back(x_est);
         Sigma_est_history.push_back(Sigma_est.diagonal());
+
+        //ÏÔÊ¾½ø¶ÈÌõ
+        std::cout << "Simulation progress: " << step << "/" << sim_config.time_steps << std::endl;
     }
 
-    // å°†æ•°æ®ä» vector è½¬æ¢ä¸º Eigen::Matrix ä»¥ä¾¿äºè¿›ä¸€æ­¥å¤„ç†æˆ–åˆ†æ
+    // ½«Êı¾İ´Ó vector ×ª»»Îª Eigen::Matrix ÒÔ±ãÓÚ½øÒ»²½´¦Àí»ò·ÖÎö
     Eigen::MatrixXd x_true_history_matrix(x_true_history.size(), 3);
     Eigen::MatrixXd x_est_history_matrix(x_est_history.size(), 3);
     Eigen::MatrixXd Sigma_est_history_matrix(Sigma_est_history.size(), 3);
@@ -185,5 +277,38 @@ int main() {
     }
 
     std::cout << "Simulation complete!" << std::endl;
+
+    // Ê¹ÓÃmatplotlib½øĞĞ»æÍ¼
+    std::vector<std::vector<double>> x_true_history_vec(x_true_history.size(), std::vector<double>(3));
+    std::vector<std::vector<double>> x_est_history_vec(x_est_history.size(), std::vector<double>(3));
+    std::vector<std::vector<double>> landmarks_vec(map.landmarks.size(), std::vector<double>(2));
+
+    for (size_t i = 0; i < x_true_history.size(); ++i) {
+        x_true_history_vec[i][0] = x_true_history[i][0];
+        x_true_history_vec[i][1] = x_true_history[i][1];
+        x_true_history_vec[i][2] = x_true_history[i][2];
+    }
+
+    for (size_t i = 0; i < x_est_history.size(); ++i) {
+        x_est_history_vec[i][0] = x_est_history[i][0];
+        x_est_history_vec[i][1] = x_est_history[i][1];
+        x_est_history_vec[i][2] = x_est_history[i][2];
+    }
+
+    for (size_t i = 0; i < map.landmarks.size(); ++i) {
+        landmarks_vec[i][0] = map.landmarks[i][0];
+        landmarks_vec[i][1] = map.landmarks[i][1];
+    }
+
+    plot_path(x_true_history_vec, x_est_history_vec, landmarks_vec);
+
+    for (size_t i = 0; i < x_true_history.size(); ++i) {
+        x_true_history_matrix.row(i) = x_true_history[i];
+        x_est_history_matrix.row(i) = x_est_history[i];
+        Sigma_est_history_matrix.row(i) = Sigma_est_history[i];
+    }
+
+    plot_estimation_error(x_est_history_matrix, x_true_history_matrix, Sigma_est_history_matrix);
+
     return 0;
 }
