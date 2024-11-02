@@ -4,7 +4,9 @@
 #include <random>
 #include "matplotlibcpp.h"
 #include "robot_localization_system.hpp" // 包含FilterConfiguration, Map, RobotEstimator的头文件
-
+#include <omp.h>
+#include <chrono>
+#include <thread>
 
 namespace plt = matplotlibcpp;
 
@@ -210,6 +212,14 @@ void plot_estimation_error(const Eigen::MatrixXd& x_est_history_matrix, const Ei
 
 
 int main() {
+    // 记录开始时间
+    auto start = std::chrono::high_resolution_clock::now();
+
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    Eigen::setNbThreads(num_threads - 1);
+
+
+
     SimulatorConfiguration sim_config;
     FilterConfiguration filter_config;
     Map map;
@@ -232,6 +242,7 @@ int main() {
     std::vector<Eigen::Vector3d> x_est_history;
     std::vector<Eigen::Vector3d> Sigma_est_history;
 
+    #pragma omp parallel for
     for (int step = 0; step < sim_config.time_steps; ++step) {
         //bar.set_progress(static_cast<size_t>(100.0 * step / sim_config.time_steps));
 
@@ -264,6 +275,13 @@ int main() {
         //显示进度条
         std::cout << "Simulation progress: " << step << "/" << sim_config.time_steps << std::endl;
     }
+
+    // 记录结束时间
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+
+    // 输出运行时间
+    std::cout << "运行时间: " << duration.count() << " 秒" << std::endl;
 
     // 将数据从 vector 转换为 Eigen::Matrix 以便于进一步处理或分析
     Eigen::MatrixXd x_true_history_matrix(x_true_history.size(), 3);

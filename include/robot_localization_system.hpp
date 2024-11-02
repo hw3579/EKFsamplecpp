@@ -1,9 +1,12 @@
 #define M_PI 3.14159265358979323846
+#ifndef ROBOT_LOCALIZATION_SYSTEM_HPP
+#define ROBOT_LOCALIZATION_SYSTEM_HPP
 
 #include <Eigen/Dense>
 #include <cmath>
 #include <vector>
 #include <iostream>
+#include "map_generate.hpp"
 
 class FilterConfiguration {
 public:
@@ -26,25 +29,6 @@ public:
         x0 << 2.0, 3.0, M_PI / 4;
         Sigma0 = Eigen::Matrix3d::Identity();
         Sigma0.diagonal() << 1.0, 1.0, 0.5;
-    }
-};
-
-class Map {
-public:
-    std::vector<Eigen::Vector2d> landmarks;
-
-    Map() {
-        int n = 6;
-        double range_min = -20;
-        double range_max = 20;
-
-        for (int i = 0; i < n; ++i) {
-            for (int j = 0; j < n; ++j) {
-                double x = range_min + (range_max - range_min) * i / (n - 1);
-                double y = range_min + (range_max - range_min) * j / (n - 1);
-                landmarks.emplace_back(x, y);
-            }
-        }
     }
 };
 
@@ -148,3 +132,5 @@ private:
         _Sigma_est = (Eigen::Matrix3d::Identity() - K * C) * _Sigma_pred;
     }
 };
+
+#endif // ROBOT_LOCALIZATION_SYSTEM_HPP
