@@ -1,4 +1,3 @@
-
 #define M_PI 3.14159265358979323846
 
 #include <Eigen/Dense>
@@ -35,7 +34,7 @@ public:
     std::vector<Eigen::Vector2d> landmarks;
 
     Map() {
-        int n = 3;
+        int n = 6;
         double range_min = -20;
         double range_max = 20;
 

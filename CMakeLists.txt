@@ -5,7 +5,12 @@ project(MyProject)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
+if (MSVC)
+    set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
+else (LINUX)
+    add_compile_options(-Wall -Wextra -Wpedantic -fpermissive)
+    set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+endif()
 
 # 找到 Python 的头文件和库
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
@@ -21,9 +26,9 @@ execute_process(
 include_directories(${Python3_INCLUDE_DIRS} ${NUMPY_INCLUDE_DIR})
 
 # 添加matplotlibcpp头文件
-find_path(MATPLOTLIB_CPP_INCLUDE_DIRS "matplotlibcpp.h")
+# find_path(MATPLOTLIB_CPP_INCLUDE_DIRS "matplotlibcpp.h")
 if (NOT MATPLOTLIB_CPP_INCLUDE_DIRS)
-    message(FATAL_ERROR "Could not find matplotlibcpp.h")
+    message(INFO_ERROR "Could not find matplotlibcpp.h")
 endif()
 
 # 添加源文件
